@@ -1,0 +1,115 @@
+Ever need to constuct XML on the fly?  Like maybe with XML APIs... Are all your inputs/values are as asociative arrays?
+
+Finding myself in that boat pretty often, I have created this simple library to convert associative arrays into XML.
+
+You can do this two ways:
+
+<big><code>ArrayToXml::build($array)</code></big>
+* uses CakePHP's XmlHelper to construct, 
+* this lets you construct XML segments easier, which you can put together later
+* NOTE: this XML will not have a root element, unless the array does 
+
+or if you prefer SimpleXml (which is faster)
+
+<big><code>ArrayToXml::simplexml($array, $rootNodeName, $rootNodeAttributes)</code></big>
+* NOTE: this assumes the $array doesn't have a root element
+
+The <code>$array</code> should be structured as you want the XML structured, keys as elements.
+
+<pre><code>$array = array(
+  'Parent' => array(
+		'Child1' => array('id' => 1234, 'name' => 'child 1'),
+		'Child2' => array('id' => 9876, 'name' => 'child 2'),
+	),
+);
+$xmlStrBuild = str_replace("\n", "", ArrayToXml::build($array));
+$expected = '<Parent><Child1><id>1234</id><name>child 1</name></Child1><Child2><id>9876</id><name>child 2</name></Child2></Parent>';
+$this->assertEqual($xmlStrBuild, $expected);
+$xmlStrBuild = str_replace("\n", "", ArrayToXml::build($array, true));
+$expected = '<?xml version="1.0" encoding="UTF-8" ?><Parent><Child1><id>1234</id><name>child 1</name></Child1><Child2><id>9876</id><name>child 2</name></Child2></Parent>';
+$this->assertEqual($xmlStrBuild, $expected);
+
+$xmlStrSimple = str_replace("\n", "", ArrayToXml::simplexml($array['Parent'], 'Parent'));
+$expected = '<?xml version="1.0"?><Parent><Child1><id>1234</id><name>child 1</name></Child1><Child2><id>9876</id><name>child 2</name></Child2></Parent>';
+$this->assertEqual($xmlStrBuild, $expected);
+$xmlStrSimple = str_replace("\n", "", ArrayToXml::simplexml($array, 'Root'));
+$expected = '<?xml version="1.0"?><Root><Parent><Child1><id>1234</id><name>child 1</name></Child1><Child2><id>9876</id><name>child 2</name></Child2></Parent></Root>';
+$this->assertEqual($xmlStrBuild, $expected);
+</code></pre>
+
+If you want to inject attributes for any element, you can do so in one of two ways:
+
+<pre><code>$array = array(
+'Parent' => array(
+	'attrib' => array('attr1' => 0),
+	'Child1' => array('id' => 1234, 'name' => 'child 1', 'attrib' => array('attr1' => 1)),
+	'Child2' => array('id' => 9876, 'name' => 'child 2', 'attrib' => array('attr1' => 2)),
+	),
+);
+$xml = str_replace("\n", "", ArrayToXml::build($array));
+$expected = '<Parent attr1="0"><Child1 attr1="1"><id>1234</id><name>child 1</name></Child1><Child2 attr1="2"><id>9876</id><name>child 2</name></Child2></Parent>';
+$this->assertEqual($xml, $expected);
+</code></pre>
+
+Or you can suffix the keys, separated by a pipe: _(I like this method most of the time)_
+
+<pre><code>$array = array(
+	'Parent|{"attr1":"0"}' => array(
+		'Child1|{"attr1":"1"}' => array('id' => 1234, 'name' => 'child 1'),
+		'Child2|{"attr1":"2"}' => array('id' => 9876, 'name' => 'child 2'),
+	),
+);
+$xml = str_replace("\n", "", ArrayToXml::build($array));
+$expected = '<Parent attr1="0"><Child1 attr1="1"><id>1234</id><name>child 1</name></Child1><Child2 attr1="2"><id>9876</id><name>child 2</name></Child2></Parent>';
+$this->assertEqual($xml, $expected);
+</code></pre>
+
+You can use this same trick to iterate over multiple nodes which should have the same name
+
+<pre><code>$array = array(
+	'Parent' => array(
+		'Child|1' => array('id' => 1234, 'name' => 'child 1'),
+		'Child|2' => array('id' => 9876, 'name' => 'child 2'),
+		'Child|{"attr1":"with attributes"}|3' => array('id' => 3, 'name' => 'child 3'),
+	),
+);
+$xml = str_replace("\n", "", ArrayToXml::build($array));
+$expected = '<Parent><Child><id>1234</id><name>child 1</name></Child><Child><id>9876</id><name>child 2</name></Child><Child attr1="with attributes"><id>3</id><name>child 3</name></Child></Parent>';
+$this->assertEqual($xml, $expected);
+</code></pre>
+
+You can also use this helper function for this:
+
+<pre><code>$array = array(
+	'Parent' => array(
+		array('id' => 1234, 'name' => 'child 1'),
+		array('id' => 9876, 'name' => 'child 2', 'attrib' => array('attr1' => 2)),
+	),
+);
+$array = ArrayToXml::add_tags($array, 'Child', true);
+print_r($array); >>>
+Array
+(
+	[Parent] => Array
+		(
+			[Child|0] => Array
+				(
+					[id] => 1234
+					[name] => child 1
+				)
+
+			[Child|1] => Array
+				(
+					[id] => 9876
+					[name] => child 2
+					[attrib] => Array
+						(
+							[attr1] => 2
+						)
+
+				)
+
+		)
+
+)
+</code></pre>
